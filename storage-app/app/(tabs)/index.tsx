@@ -101,6 +101,9 @@ export default function App() {
   const renderItem = ({ item }) => (
     <View style={styles.item}>
       <Image source={{ uri: item.link }} style={styles.image} />
+      <TouchableOpacity style={styles.deleteButton} onPress={() => deleteImage(item.path)}>
+        <Text style={styles.deleteButtonText}>Delete</Text>
+      </TouchableOpacity>
     </View>
   );
 
@@ -149,5 +152,14 @@ const styles = StyleSheet.create({
   image: {
     width: 200,
     height: 200,
+  },
+  deleteButton: {
+    backgroundColor: '#ff0000',
+    padding: 10,
+    borderRadius: 5,
+  },
+  deleteButtonText: {
+    color: '#ffffff',
+    fontWeight: 'bold',
   },
 });
