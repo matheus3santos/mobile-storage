@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { StyleSheet, View, Text, Button, FlatList, Image, Alert, ActivityIndicator } from 'react-native';
+import { StyleSheet, View, Text, Button, FlatList, Image, Alert, ActivityIndicator, TouchableOpacity } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { initializeApp } from "firebase/app";
-import { getStorage, ref, uploadBytes, list, getDownloadURL } from "firebase/storage";
+import { getStorage, ref, uploadBytes, list, getDownloadURL, deleteObject } from "firebase/storage";
 
 export default function App() {
   const [imageUri, setImageUri] = useState(null);
@@ -23,6 +23,13 @@ export default function App() {
   // Inicializar Firebase
   const app = initializeApp(firebaseConfig);
   const storage = getStorage(app);
+
+  // Função para converter URI em blob
+  const uriToBlob = async (uri) => {
+    const response = await fetch(uri);
+    const blob = await response.blob();
+    return blob;
+  };
 
   // Função para escolher a imagem
   const pickImage = async () => {
@@ -45,26 +52,28 @@ export default function App() {
   }
 
   // Função para fazer o upload da imagem
-  const uploadImage = async (uri) => {
-    if (!uri) {
+  const uploadImage = async () => {
+    if (!imageUri) {
       Alert.alert('Selecione uma imagem antes de enviar.');
       return;
     }
 
     try {
       setUploading(true);  // Começar o upload
-      const response = await fetch(uri);
-      const blob = await response.blob();
+      const blob = await uriToBlob(imageUri);
 
       // Criar uma referência com um nome aleatório
       const fileName = `images/image_${getRandom(10000)}.jpg`;
       const imageRef = ref(storage, fileName);
 
       // Fazer o upload do arquivo
-      await uploadBytes(imageRef, blob);
+      await uploadBytes(imageRef, blob, {
+        contentType: 'image/jpeg'  // Especificar o tipo MIME
+      });
 
       Alert.alert('Imagem enviada com sucesso!');
       setImageUri(null);  // Resetar o URI da imagem após o upload
+      LinkImage(); // Atualizar a lista de imagens após o upload
     } catch (error) {
       console.error('Erro ao fazer upload:', error);
       Alert.alert('Erro ao enviar a imagem.');
@@ -86,7 +95,7 @@ export default function App() {
       // Percorrer cada item e obter o link
       for (const item of firstPage.items) {
         const link = await getDownloadURL(item);
-        lista.push({ key: item.name, link });
+        lista.push({ key: item.name, link, path: item.fullPath });
       }
 
       setImages(lista);
@@ -96,6 +105,21 @@ export default function App() {
       console.error('Erro ao listar imagens:', error);
     }
   }
+
+  // Função para deletar uma imagem do Firebase Storage
+  const deleteImage = async (path) => {
+    try {
+      const imageRef = ref(storage, path); // Usar o caminho completo
+      await deleteObject(imageRef);
+      Alert.alert('Imagem deletada com sucesso!');
+      
+      // Atualizar a lista de imagens localmente após a exclusão
+      setImages(images.filter(image => image.path !== path));
+    } catch (error) {
+      console.error('Erro ao deletar imagem:', error);
+      Alert.alert('Erro ao deletar a imagem.');
+    }
+  };
 
   // Renderizar o item no FlatList
   const renderItem = ({ item }) => (
@@ -152,6 +176,7 @@ const styles = StyleSheet.create({
   image: {
     width: 200,
     height: 200,
+    marginBottom: 10,
   },
   deleteButton: {
     backgroundColor: '#ff0000',
